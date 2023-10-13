@@ -18,7 +18,41 @@ linters-settings:
     require-specific: true
 
 linters:
-  disable-all: true
+  disable-all: false
+  enable:
+    - errcheck
+    - errname
+    - exportloopref
+    - exhaustive
+    - goconst
+    - gocritic
+    - gofmt
+    - goimports
+    - gomnd
+    - gomoddirectives
+    - gomodguard
+    - gocyclo
+    - govet
+    - gosimple
+    - ineffassign
+    - misspell
+    - nilerr
+    - nilnil
+    - nolintlint
+    - nakedret
+    - prealloc
+    - predeclared
+    - revive
+    - staticcheck
+    - stylecheck
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - gosec
+    - gosimple
 
 run:
   issues-exit-code: 1
