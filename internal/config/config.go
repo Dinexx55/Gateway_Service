@@ -4,27 +4,33 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
-	"log"
 	"os"
 	"time"
 
 	"github.com/spf13/viper"
 )
 
-// HTTPServer holds config information for http server
-type HTTPServer struct {
+type RabbitMQConfig struct {
+	Host     string
+	Port     string
+	Username string
+	Password string
+}
+
+// HTTPServerConfig holds config information for http server
+type HTTPServerConfig struct {
 	MaxHeaderBytes    int
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 	ReadHeaderTimeout time.Duration
+	TimeOutSec        int
 	Port              string
 	Host              string
 }
 
 // Server contains setting for setting up Server that contains HTTP and gRPC servers
 type Server struct {
-	HTTP       *HTTPServer
-	TimeOutSec int
+	HTTP *HTTPServerConfig
 }
 
 // Configurator used to get all configurations from configured conf files
@@ -55,14 +61,14 @@ func NewConfiguration() (*Configurator, error) {
 }
 
 // SrvConfig returns configuration for server
-func (cfg *Configurator) HTTPSrvConfig() *HTTPServer {
-	log.Println("Reading configuration")
+func (cfg *Configurator) getHTTPSrvConfig() *HTTPServerConfig {
 
-	return &HTTPServer{
+	return &HTTPServerConfig{
 		MaxHeaderBytes:    viper.GetInt("srv.maxHeaderBytes"),
 		ReadTimeout:       viper.GetDuration("srv.readTimeout"),
 		WriteTimeout:      viper.GetDuration("srv.writeTimeout"),
 		ReadHeaderTimeout: viper.GetDuration("srv.readHeaderTimeout"),
+		TimeOutSec:        viper.GetInt("srv.timeOutSec"),
 		Port:              viper.GetString("srv.port"),
 		Host:              viper.GetString("srv.host"),
 	}
@@ -70,15 +76,26 @@ func (cfg *Configurator) HTTPSrvConfig() *HTTPServer {
 
 // ServerConfig returns config for creating Server struct
 func (cfg *Configurator) ServerConfig() *Server {
-	log.Println("Reading server config")
-	httpSrv := cfg.HTTPSrvConfig()
+	httpSrv := cfg.getHTTPSrvConfig()
 
 	srv := Server{
-		HTTP:       httpSrv,
-		TimeOutSec: viper.GetInt("srv.timeOutSec"),
+		HTTP: httpSrv,
 	}
 
 	return &srv
+}
+
+func (cfg *Configurator) GetRabbitMQConfig() *RabbitMQConfig {
+	return &RabbitMQConfig{
+		Password: viper.GetString("rabbit.password"),
+		Username: viper.GetString("rabbit.username"),
+		Port:     viper.GetString("rabbit.port"),
+		Host:     viper.GetString("rabbit.host"),
+	}
+}
+
+func (cfg *Configurator) GetAMQPConnectionURL(rabbitCfg *RabbitMQConfig) string {
+	return fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitCfg.Username, rabbitCfg.Password, rabbitCfg.Host, rabbitCfg.Port)
 }
 
 type AppEnvs int

@@ -11,10 +11,7 @@ import (
 )
 
 const (
-	Header          = "Authorization"
-	AuthTypeBearer  = "bearer"
-	authTokenFields = 2
-	InvalidUser     = string("")
+	Header = "Authorization"
 )
 
 type JWTProvider interface {

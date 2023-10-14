@@ -25,10 +25,11 @@ type Auth struct {
 	Password string `json:"password" binding:"required,min=6,max=40"  minimum:"6" maximum:"40" default:"password"`
 }
 
-func NewAuthHandler(authService AuthService, logger *zap.Logger) *AuthHandler {
+func NewAuthHandler(authService AuthService, logger *zap.Logger, mapper mapper.ErrorMapper) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 		logger:      logger,
+		errorMapper: mapper,
 	}
 }
 
@@ -51,11 +52,13 @@ func (h *AuthHandler) SingIn(c *gin.Context) {
 		h.logger.With(
 			zap.String("place", "authHandler"),
 			zap.String("func", "SignIn"),
-		).Error("Error while signing in")
+		).Error("Error while signing in: " + err.Error())
 
 		errInf := h.errorMapper.MapError(err)
+
+		h.logger.Info("Here")
 		c.JSON(errInf.StatusCode,
-			response.CreateJSONResult("Error", errInf.Msg))
+			response.CreateJSONResult("Error", errInf.Message))
 
 		return
 	}

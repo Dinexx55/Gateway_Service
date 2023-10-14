@@ -3,13 +3,14 @@ package main
 import (
 	"GatewayService/internal/config"
 	"GatewayService/internal/handler"
+	"GatewayService/internal/handler/error/mapper"
 	"GatewayService/internal/middleware"
 	"GatewayService/internal/provider/token"
 	"GatewayService/internal/repository"
 	"GatewayService/internal/server"
 	"GatewayService/internal/service"
 	"context"
-	"fmt"
+	"github.com/streadway/amqp"
 	"go.uber.org/zap"
 	"log"
 	"os"
@@ -45,36 +46,49 @@ func main() {
 	authProvider, err := token.NewJWTProvider(*providerCfg, logger)
 	if err != nil {
 		logger.With(
-			zap.String("place", "system(main)"),
+			zap.String("place", "main"),
 			zap.Error(err),
-		).Panic("Failed to connect to token generator")
+		).Panic("Failed to connect to JWT provider")
+	}
+
+	rabbitChannel, err := initRabbitMQConnection(cfg, logger)
+
+	if err != nil {
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to establish rabbitMQ connection")
 	}
 
 	userRepository := repository.NewMockUserRepository()
 
 	authService := service.NewAuthService(authProvider, logger, userRepository)
 
-	authHandler := handler.NewAuthHandler(authService, logger)
-	shopsHandler := handler.NewShopsHandler(logger)
+	errorMapper := mapper.NewAuthErrorMapper()
+
+	authHandler := handler.NewAuthHandler(authService, logger, errorMapper)
+
+	storesHandler := handler.NewStoresHandler(rabbitChannel, logger)
 
 	authMiddleware := middleware.NewMiddleware(authProvider)
 
-	router := handler.NewRouter(authHandler, shopsHandler, authMiddleware)
+	router := handler.NewRouter(authHandler, storesHandler, authMiddleware)
 
 	srvCfg := cfg.ServerConfig()
-	srv := server.NewServer(srvCfg, router)
-	fmt.Println(srv)
+
+	srv := server.NewServer(srvCfg, router, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		if err := srv.Run(ctx); err != nil {
 			logger.With(
-				zap.String("place", "system(main)"),
+				zap.String("place", "main"),
 				zap.Error(err),
 			).Error("Server failed during run")
 		}
 	}()
 
+	//graceful shutdown using buffered channel
 	shutDown := make(chan os.Signal, 1)
 
 	signal.Notify(shutDown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
@@ -83,7 +97,7 @@ func main() {
 
 	logger.With(
 		zap.String("signal", s.String()),
-	).Info("System received signal for shutdown, shutting down server")
+	).Info("Shutting down server")
 
 	cancel()
 }
@@ -94,4 +108,29 @@ func initLogger() (*zap.Logger, error) {
 		logger, err = zap.NewDevelopment()
 	}
 	return logger, err
+}
+
+func initRabbitMQConnection(cfg *config.Configurator, logger *zap.Logger) (*amqp.Channel, error) {
+	mqConfig := cfg.GetRabbitMQConfig()
+
+	conn, err := amqp.Dial(cfg.GetAMQPConnectionURL(mqConfig))
+	if err != nil {
+		logger.With(
+			zap.String("place", "initRabbitMQConnection"),
+			zap.Error(err),
+		).Error("Failed to establish RabbitMQ connection")
+		return nil, err
+	}
+
+	channel, err := conn.Channel()
+	if err != nil {
+		conn.Close()
+		logger.With(
+			zap.String("place", "initRabbitMQConnection"),
+			zap.Error(err),
+		).Error("Failed to open RabbitMQ channel")
+		return nil, err
+	}
+
+	return channel, nil
 }
