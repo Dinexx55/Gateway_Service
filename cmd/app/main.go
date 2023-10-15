@@ -32,14 +32,11 @@ func main() {
 	}
 	defer logger.Sync()
 
-	//add information about environment into logger
-	isRelease := cfg.GetEnvironment(logger) != config.Development
-	envField := zap.String("APP_ENV", "production")
-	if !isRelease {
-		envField = zap.String("APP_ENV", "development")
+	if isRelease := cfg.GetEnvironment(logger) == config.Release; isRelease {
+		logger.Info("Got application environment. Running in Release")
+	} else {
+		logger.Info("Got application environment. Running in Development")
 	}
-
-	logger.Info("Got application environment", envField)
 
 	providerCfg := cfg.JWTProviderConfig(logger)
 
@@ -51,13 +48,33 @@ func main() {
 		).Panic("Failed to connect to JWT provider")
 	}
 
-	rabbitChannel, err := initRabbitMQConnection(cfg, logger)
+	rabbitConnection, err := initRabbitMQConnection(cfg)
+
+	if err != nil {
+		rabbitConnection.Close()
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to establish RabbitMQ rabbitConnection")
+	}
+
+	channel, err := initRabbitChannel(rabbitConnection)
+
+	if err != nil {
+		channel.Close()
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to init RabbitMQ channel")
+	}
+
+	queueName, err := declareRabbitQueue(channel)
 
 	if err != nil {
 		logger.With(
 			zap.String("place", "main"),
 			zap.Error(err),
-		).Panic("Failed to establish rabbitMQ connection")
+		).Panic("Failed to init RabbitMQ queue")
 	}
 
 	userRepository := repository.NewMockUserRepository()
@@ -68,7 +85,7 @@ func main() {
 
 	authHandler := handler.NewAuthHandler(authService, logger, errorMapper)
 
-	storesHandler := handler.NewStoresHandler(rabbitChannel, logger)
+	storesHandler := handler.NewStoresHandler(channel, rabbitConnection, queueName, logger)
 
 	authMiddleware := middleware.NewMiddleware(authProvider)
 
@@ -110,27 +127,28 @@ func initLogger() (*zap.Logger, error) {
 	return logger, err
 }
 
-func initRabbitMQConnection(cfg *config.Configurator, logger *zap.Logger) (*amqp.Channel, error) {
+func declareRabbitQueue(channel *amqp.Channel) (string, error) {
+	queue, err := channel.QueueDeclare(
+		"CreateQueue", // name
+		false,         // durable
+		false,         // delete when unused
+		false,         // exclusive
+		false,         // no-wait
+		nil,           // arguments
+	)
+	return queue.Name, err
+}
+
+func initRabbitChannel(connection *amqp.Connection) (*amqp.Channel, error) {
+	channel, err := connection.Channel()
+
+	return channel, err
+}
+
+func initRabbitMQConnection(cfg *config.Configurator) (*amqp.Connection, error) {
 	mqConfig := cfg.GetRabbitMQConfig()
 
 	conn, err := amqp.Dial(cfg.GetAMQPConnectionURL(mqConfig))
-	if err != nil {
-		logger.With(
-			zap.String("place", "initRabbitMQConnection"),
-			zap.Error(err),
-		).Error("Failed to establish RabbitMQ connection")
-		return nil, err
-	}
 
-	channel, err := conn.Channel()
-	if err != nil {
-		conn.Close()
-		logger.With(
-			zap.String("place", "initRabbitMQConnection"),
-			zap.Error(err),
-		).Error("Failed to open RabbitMQ channel")
-		return nil, err
-	}
-
-	return channel, nil
+	return conn, err
 }

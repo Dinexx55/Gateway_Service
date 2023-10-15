@@ -98,29 +98,27 @@ func (cfg *Configurator) GetAMQPConnectionURL(rabbitCfg *RabbitMQConfig) string 
 	return fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitCfg.Username, rabbitCfg.Password, rabbitCfg.Host, rabbitCfg.Port)
 }
 
-type AppEnvs int
+type AppEnvironment string
 
 const (
-	Release = iota
-	Development
+	Release             AppEnvironment = "release"
+	Development         AppEnvironment = "development"
+	DefaultEnv          AppEnvironment = Development
+	EnvironmentVariable                = "APP_ENV"
 )
 
-// GetEnvironment returns application development stage
-func (cfg *Configurator) GetEnvironment(logger *zap.Logger) AppEnvs {
+func (cfg *Configurator) GetEnvironment(logger *zap.Logger) AppEnvironment {
 	logger.With(
 		zap.String("place", "GetEnvironment"),
 	).Info("Reading GetEnvironment")
 
-	switch os.Getenv("APP_ENV") {
-	case "release":
-		logger.Info("Running in release")
-
-		return Release
-	default:
-		logger.Info("Running in development")
-
-		return Development
+	env := os.Getenv(EnvironmentVariable)
+	if env == "" {
+		env = string(DefaultEnv)
 	}
+
+	logger.Info("Running in " + env)
+	return AppEnvironment(env)
 }
 
 type JWTProvider struct {

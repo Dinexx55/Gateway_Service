@@ -52,7 +52,7 @@ func (m *Middleware) AccessTokenValidation() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("userId", login)
+		c.Set("login", login)
 		c.Next()
 	}
 }
