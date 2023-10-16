@@ -2,7 +2,7 @@ package handler
 
 import (
 	"GatewayService/internal/handler/error/mapper"
-	"GatewayService/internal/handler/error/validator"
+	"GatewayService/internal/handler/error/validation"
 	"GatewayService/internal/handler/response"
 	"GatewayService/internal/service"
 	"github.com/gin-gonic/gin"
@@ -37,7 +37,7 @@ func (h *AuthHandler) SingIn(c *gin.Context) {
 
 	var credentials Auth
 	if err := c.ShouldBindJSON(&credentials); err != nil {
-		c.JSON(http.StatusBadRequest, validator.ProcessValidatorError(err))
+		c.JSON(http.StatusBadRequest, validation.FormatValidatorError(err))
 		return
 	}
 

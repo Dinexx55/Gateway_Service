@@ -4,12 +4,14 @@ import (
 	"GatewayService/internal/config"
 	"GatewayService/internal/handler"
 	"GatewayService/internal/handler/error/mapper"
+	"GatewayService/internal/handler/error/validation"
 	"GatewayService/internal/middleware"
 	"GatewayService/internal/provider/token"
 	"GatewayService/internal/repository"
 	"GatewayService/internal/server"
 	"GatewayService/internal/service"
 	"context"
+	"github.com/go-playground/validator/v10"
 	"github.com/streadway/amqp"
 	"go.uber.org/zap"
 	"log"
@@ -36,6 +38,15 @@ func main() {
 		logger.Info("Got application environment. Running in Release")
 	} else {
 		logger.Info("Got application environment. Running in Development")
+	}
+
+	structValidator := validator.New()
+	err = validation.RegisterCustomValidators(structValidator)
+	if err != nil {
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to register validators")
 	}
 
 	providerCfg := cfg.JWTProviderConfig(logger)
@@ -85,7 +96,7 @@ func main() {
 
 	authHandler := handler.NewAuthHandler(authService, logger, errorMapper)
 
-	storesHandler := handler.NewStoresHandler(channel, rabbitConnection, queueName, logger)
+	storesHandler := handler.NewStoresHandler(channel, rabbitConnection, queueName, logger, structValidator)
 
 	authMiddleware := middleware.NewMiddleware(authProvider)
 
@@ -152,3 +163,14 @@ func initRabbitMQConnection(cfg *config.Configurator) (*amqp.Connection, error) 
 
 	return conn, err
 }
+
+//func initValidator(logger *zap.Logger) {
+//	validate := validator.New()
+//	err := validate.RegisterValidation("addressFormat", validation.ValidateAddress)
+//	if err != nil {
+//		logger.With(
+//			zap.String("place", "main"),
+//			zap.Error(err),
+//		).Panic("Failed to init validator")
+//	}
+//}

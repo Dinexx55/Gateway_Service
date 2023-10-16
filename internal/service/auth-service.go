@@ -24,10 +24,6 @@ type AuthService struct {
 	repository UserRepository
 }
 
-func (s *AuthService) SingIn(user User) (string, error) {
-	return "", nil
-}
-
 func NewAuthService(provider JWTProvider, logger *zap.Logger, repository UserRepository) *AuthService {
 	return &AuthService{
 		provider:   provider,

@@ -1,10 +1,11 @@
 package handler
 
 import (
-	"GatewayService/internal/handler/error/validator"
+	"GatewayService/internal/handler/error/validation"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/streadway/amqp"
 	"go.uber.org/zap"
 	"net/http"
@@ -15,70 +16,42 @@ type StoresHandler struct {
 	rabbitMQChannel *amqp.Channel
 	rabbitMQConn    *amqp.Connection
 	rabbitMQQueue   string
+	structValidator *validator.Validate
 }
 
 type Store struct {
-	Name        string `json:"name" binding:"required"`
-	Address     string `json:"address" binding:"required"`
-	OwnerName   string `json:"ownerName" binding:"required"`
-	OpeningTime string `json:"openingTime" binding:"required"`
-	ClosingTime string `json:"closingTime" binding:"required"`
+	Name        string `json:"name" validate:"required,min=3,max=40"`
+	Address     string `json:"address" validate:"required,addressFormat"`
+	OwnerName   string `json:"ownerName" validate:"required,ownerNameFormat"`
+	OpeningTime string `json:"openingTime" validate:"required,timeFormat"`
+	ClosingTime string `json:"closingTime" validate:"required,timeFormat"`
 }
 
 type StoreVersion struct {
-	OwnerName   string `json:"ownerName" binding:"required"`
-	OpeningTime string `json:"openingTime" binding:"required"`
-	ClosingTime string `json:"closingTime" binding:"required"`
+	OwnerName   string `json:"ownerName" validate:"required,ownerNameFormat"`
+	OpeningTime string `json:"openingTime" validate:"required,timeFormat"`
+	ClosingTime string `json:"closingTime" validate:"required,timeFormat"`
 }
 
-func NewStoresHandler(channel *amqp.Channel, rabbitMQConn *amqp.Connection, rabbitMQQueue string, logger *zap.Logger) *StoresHandler {
+func NewStoresHandler(channel *amqp.Channel, rabbitMQConn *amqp.Connection, rabbitMQQueue string, logger *zap.Logger, structValidator *validator.Validate) *StoresHandler {
 	return &StoresHandler{
 		logger:          logger,
 		rabbitMQChannel: channel,
 		rabbitMQConn:    rabbitMQConn,
 		rabbitMQQueue:   rabbitMQQueue,
+		structValidator: structValidator,
 	}
-}
-
-func (h *StoresHandler) sendMessage(message []byte) error {
-	err := h.rabbitMQChannel.Publish(
-		"",
-		h.rabbitMQQueue,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        message,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func buildMessage(data interface{}, action, login, storeId, versionId string) []byte {
-	message := map[string]interface{}{
-		"storeId":   storeId,
-		"versionId": versionId,
-		"data":      data,
-		"action":    action,
-		"userLogin": login,
-	}
-
-	body, err := json.Marshal(message)
-	if err != nil {
-		return nil
-	}
-
-	return body
 }
 
 func (h *StoresHandler) CreateStore(c *gin.Context) {
 	var store Store
 	if err := c.ShouldBindJSON(&store); err != nil {
-		c.JSON(http.StatusBadRequest, validator.ProcessValidatorError(err))
+		c.JSON(http.StatusBadRequest, validation.FormatValidatorError(err))
+		return
+	}
+
+	if err := h.structValidator.Struct(store); err != nil {
+		c.JSON(http.StatusBadRequest, validation.FormatValidatorError(err))
 		return
 	}
 
@@ -103,7 +76,12 @@ func (h *StoresHandler) CreateStore(c *gin.Context) {
 func (h *StoresHandler) CreateStoreVersion(c *gin.Context) {
 	var storeVersion StoreVersion
 	if err := c.ShouldBindJSON(&storeVersion); err != nil {
-		c.JSON(http.StatusBadRequest, validator.ProcessValidatorError(err))
+		c.JSON(http.StatusBadRequest, validation.FormatValidatorError(err))
+		return
+	}
+
+	if err := h.structValidator.Struct(storeVersion); err != nil {
+		c.JSON(http.StatusBadRequest, validation.FormatValidatorError(err))
 		return
 	}
 
@@ -247,4 +225,39 @@ func (h *StoresHandler) HandleResponse(c *gin.Context) {
 	fmt.Printf("Received payload: %+v\n", payload)
 
 	c.JSON(http.StatusOK, payload)
+}
+
+func (h *StoresHandler) sendMessage(message []byte) error {
+	err := h.rabbitMQChannel.Publish(
+		"",
+		h.rabbitMQQueue,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        message,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func buildMessage(data interface{}, action, login, storeId, versionId string) []byte {
+	message := map[string]interface{}{
+		"storeId":   storeId,
+		"versionId": versionId,
+		"data":      data,
+		"action":    action,
+		"userLogin": login,
+	}
+
+	body, err := json.Marshal(message)
+	if err != nil {
+		return nil
+	}
+
+	return body
 }
