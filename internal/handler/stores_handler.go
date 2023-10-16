@@ -3,6 +3,7 @@ package handler
 import (
 	"GatewayService/internal/handler/error/validator"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/streadway/amqp"
 	"go.uber.org/zap"
@@ -25,9 +26,9 @@ type Store struct {
 }
 
 type StoreVersion struct {
-	StoreOwnerName string `json:"storeOwnerName" binding:"required"`
-	OpeningTime    string `json:"openingTime" binding:"required"`
-	ClosingTime    string `json:"closingTime" binding:"required"`
+	OwnerName   string `json:"ownerName" binding:"required"`
+	OpeningTime string `json:"openingTime" binding:"required"`
+	ClosingTime string `json:"closingTime" binding:"required"`
 }
 
 func NewStoresHandler(channel *amqp.Channel, rabbitMQConn *amqp.Connection, rabbitMQQueue string, logger *zap.Logger) *StoresHandler {
@@ -231,4 +232,19 @@ func (h *StoresHandler) GetStoreVersion(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+}
+
+func (h *StoresHandler) HandleResponse(c *gin.Context) {
+	var payload interface{}
+
+	h.logger.Info("Trying to extract payload from response of storage service")
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("Received payload: %+v\n", payload)
+
+	c.JSON(http.StatusOK, payload)
 }
