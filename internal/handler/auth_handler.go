@@ -65,7 +65,7 @@ func (h *AuthHandler) SingIn(c *gin.Context) {
 
 	h.logger.With(
 		zap.String("token", "accessToken"),
-	).Info("Generated successfully")
+	).Info("Token generated successfully")
 
 	c.JSON(http.StatusOK, response.CreateJSONResult("Access token", accessToken))
 }
