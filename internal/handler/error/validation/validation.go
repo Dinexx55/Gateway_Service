@@ -57,7 +57,7 @@ func FormatValidatorError(errs error) response.JSONResult {
 	ok := errors.As(errs, &e)
 
 	if !ok {
-		return response.CreateJSONResult("Error", "Invalid argument passed through request as param or part of param")
+		return response.CreateJSONResult("Error", "Invalid argument passed")
 	}
 
 	for _, err := range e {

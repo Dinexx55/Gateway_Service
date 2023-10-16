@@ -22,7 +22,7 @@ type AuthHandler struct {
 
 type Auth struct {
 	Login    string `json:"login" binding:"required,min=3,max=40"`
-	Password string `json:"password" binding:"required,min=6,max=40"  minimum:"6" maximum:"40" default:"password"`
+	Password string `json:"password" binding:"required,min=6,max=40"`
 }
 
 func NewAuthHandler(authService AuthService, logger *zap.Logger, mapper mapper.ErrorMapper) *AuthHandler {
