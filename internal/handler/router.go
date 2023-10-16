@@ -5,7 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(authHandler *AuthHandler, shopsHandler *ShopsHandler, middleware *middleware.Middleware) *gin.Engine {
+func NewRouter(authHandler *AuthHandler, storesHandler *StoresHandler, middleware *middleware.Middleware) *gin.Engine {
 	router := gin.Default()
 
 	authGroup := router.Group("auth")
@@ -13,10 +13,27 @@ func NewRouter(authHandler *AuthHandler, shopsHandler *ShopsHandler, middleware 
 		authGroup.POST("/login", authHandler.SingIn)
 	}
 
-	storageGroup := router.Group("storage")
+	storesGroup := router.Group("storage")
 	{
-		storageGroup.POST("/shop", middleware.AccessTokenValidation(), shopsHandler.CreateShop)
-		storageGroup.GET("/shop/:shopId", middleware.AccessTokenValidation(), shopsHandler.GetShopById)
+		storesGroup.POST("/store",
+			middleware.AccessTokenValidation(), storesHandler.CreateStore)
+		storesGroup.POST("/store/:id/version",
+			middleware.AccessTokenValidation(), storesHandler.CreateStoreVersion)
+		storesGroup.DELETE("/store/:id",
+			middleware.AccessTokenValidation(), storesHandler.DeleteStore)
+		storesGroup.DELETE("/store/:id/version/:versionId",
+			middleware.AccessTokenValidation(), storesHandler.DeleteStoreVersion)
+		storesGroup.GET("/store/:id",
+			middleware.AccessTokenValidation(), storesHandler.GetStore)
+		storesGroup.GET("/store/:id/history",
+			middleware.AccessTokenValidation(), storesHandler.GetStoreHistory)
+		storesGroup.GET("/store/:id/version/:versionId",
+			middleware.AccessTokenValidation(), storesHandler.GetStoreVersion)
+	}
+
+	responseGroup := router.Group("response")
+	{
+		responseGroup.POST("/", storesHandler.HandleResponse)
 	}
 	return router
 }

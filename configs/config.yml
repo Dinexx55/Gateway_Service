@@ -1,6 +1,5 @@
 tokenGen:
-  port : 8082
-#  host : "tokens"
+  port : "8082"
   host: "localhost"
   timeout: 10000000000 #10s
   retry: 10
@@ -14,3 +13,9 @@ srv:
   timeOutSec: 10 # 10s     
   port: "8080"          
   host: "localhost"
+
+rabbit:
+  host: "localhost"
+  port: "5672"
+  username: "guest"
+  password: "guest"
