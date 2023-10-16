@@ -3,13 +3,16 @@ package main
 import (
 	"GatewayService/internal/config"
 	"GatewayService/internal/handler"
+	"GatewayService/internal/handler/error/mapper"
+	"GatewayService/internal/handler/error/validation"
 	"GatewayService/internal/middleware"
 	"GatewayService/internal/provider/token"
 	"GatewayService/internal/repository"
 	"GatewayService/internal/server"
 	"GatewayService/internal/service"
 	"context"
-	"fmt"
+	"github.com/go-playground/validator/v10"
+	"github.com/streadway/amqp"
 	"go.uber.org/zap"
 	"log"
 	"os"
@@ -31,50 +34,89 @@ func main() {
 	}
 	defer logger.Sync()
 
-	//add information about environment into logger
-	isRelease := cfg.GetEnvironment(logger) != config.Development
-	envField := zap.String("APP_ENV", "production")
-	if !isRelease {
-		envField = zap.String("APP_ENV", "development")
+	if isRelease := cfg.GetEnvironment(logger) == config.Release; isRelease {
+		logger.Info("Got application environment. Running in Release")
+	} else {
+		logger.Info("Got application environment. Running in Development")
 	}
 
-	logger.Info("Got application environment", envField)
+	structValidator := validator.New()
+	err = validation.RegisterCustomValidators(structValidator)
+	if err != nil {
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to register validators")
+	}
 
 	providerCfg := cfg.JWTProviderConfig(logger)
 
 	authProvider, err := token.NewJWTProvider(*providerCfg, logger)
 	if err != nil {
 		logger.With(
-			zap.String("place", "system(main)"),
+			zap.String("place", "main"),
 			zap.Error(err),
-		).Panic("Failed to connect to token generator")
+		).Panic("Failed to connect to JWT provider")
+	}
+
+	rabbitConnection, err := initRabbitMQConnection(cfg)
+
+	if err != nil {
+		rabbitConnection.Close()
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to establish RabbitMQ rabbitConnection")
+	}
+
+	channel, err := initRabbitChannel(rabbitConnection)
+
+	if err != nil {
+		channel.Close()
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to init RabbitMQ channel")
+	}
+
+	queueName, err := declareRabbitQueue(channel)
+
+	if err != nil {
+		logger.With(
+			zap.String("place", "main"),
+			zap.Error(err),
+		).Panic("Failed to init RabbitMQ queue")
 	}
 
 	userRepository := repository.NewMockUserRepository()
 
 	authService := service.NewAuthService(authProvider, logger, userRepository)
 
-	authHandler := handler.NewAuthHandler(authService, logger)
-	shopsHandler := handler.NewShopsHandler(logger)
+	errorMapper := mapper.NewAuthErrorMapper()
+
+	authHandler := handler.NewAuthHandler(authService, logger, errorMapper)
+
+	storesHandler := handler.NewStoresHandler(channel, rabbitConnection, queueName, logger, structValidator)
 
 	authMiddleware := middleware.NewMiddleware(authProvider)
 
-	router := handler.NewRouter(authHandler, shopsHandler, authMiddleware)
+	router := handler.NewRouter(authHandler, storesHandler, authMiddleware)
 
 	srvCfg := cfg.ServerConfig()
-	srv := server.NewServer(srvCfg, router)
-	fmt.Println(srv)
+
+	srv := server.NewServer(srvCfg, router, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		if err := srv.Run(ctx); err != nil {
 			logger.With(
-				zap.String("place", "system(main)"),
+				zap.String("place", "main"),
 				zap.Error(err),
 			).Error("Server failed during run")
 		}
 	}()
 
+	//graceful shutdown using buffered channel
 	shutDown := make(chan os.Signal, 1)
 
 	signal.Notify(shutDown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
@@ -83,7 +125,7 @@ func main() {
 
 	logger.With(
 		zap.String("signal", s.String()),
-	).Info("System received signal for shutdown, shutting down server")
+	).Info("Shutting down server")
 
 	cancel()
 }
@@ -95,3 +137,40 @@ func initLogger() (*zap.Logger, error) {
 	}
 	return logger, err
 }
+
+func declareRabbitQueue(channel *amqp.Channel) (string, error) {
+	queue, err := channel.QueueDeclare(
+		"CreateQueue", // name
+		false,         // durable
+		false,         // delete when unused
+		false,         // exclusive
+		false,         // no-wait
+		nil,           // arguments
+	)
+	return queue.Name, err
+}
+
+func initRabbitChannel(connection *amqp.Connection) (*amqp.Channel, error) {
+	channel, err := connection.Channel()
+
+	return channel, err
+}
+
+func initRabbitMQConnection(cfg *config.Configurator) (*amqp.Connection, error) {
+	mqConfig := cfg.GetRabbitMQConfig()
+
+	conn, err := amqp.Dial(cfg.GetAMQPConnectionURL(mqConfig))
+
+	return conn, err
+}
+
+//func initValidator(logger *zap.Logger) {
+//	validate := validator.New()
+//	err := validate.RegisterValidation("addressFormat", validation.ValidateAddress)
+//	if err != nil {
+//		logger.With(
+//			zap.String("place", "main"),
+//			zap.Error(err),
+//		).Panic("Failed to init validator")
+//	}
+//}

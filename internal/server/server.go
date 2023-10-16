@@ -17,7 +17,7 @@ type Server struct {
 }
 
 // function called to create HTTP server and configure it
-func NewServer(cfg *config.Server, handler http.Handler) *Server {
+func NewServer(cfg *config.Server, handler http.Handler, logger *zap.Logger) *Server {
 	server := http.Server{
 		Addr:              cfg.HTTP.Host + ":" + cfg.HTTP.Port,
 		Handler:           handler,
@@ -28,7 +28,8 @@ func NewServer(cfg *config.Server, handler http.Handler) *Server {
 	}
 	return &Server{
 		httpServer: &server,
-		timeOutSec: cfg.TimeOutSec,
+		timeOutSec: cfg.HTTP.TimeOutSec,
+		logger:     logger,
 	}
 }
 

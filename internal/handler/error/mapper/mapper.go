@@ -1,6 +1,7 @@
 package mapper
 
 import (
+	"GatewayService/internal/service"
 	"net/http"
 )
 
@@ -8,20 +9,19 @@ type ErrorMapper struct {
 	mapper ErrorMap
 }
 
-func NewErrorMapper(m ErrorMap) ErrorMapper {
-	mapper := ErrorMapper{mapper: m}
+func NewAuthErrorMapper() ErrorMapper {
+	authErrMap := NewAuthErrMap()
+	mapper := ErrorMapper{mapper: authErrMap}
 	return mapper
 }
 
 type ErrorInfo struct {
 	StatusCode int
-	Msg        string
+	Message    string
 }
 
 type ErrorMap map[error]ErrorInfo
 
-// MapError for provided error returns from ErrorMapper instance ErrorInfo,
-// if error not found returns 500,"Internal server error"
 func (m ErrorMapper) MapError(err error) ErrorInfo {
 	if v, ok := m.mapper[err]; ok {
 		return v
@@ -29,7 +29,14 @@ func (m ErrorMapper) MapError(err error) ErrorInfo {
 
 	inf := ErrorInfo{
 		StatusCode: http.StatusInternalServerError,
-		Msg:        "Internal server error",
+		Message:    "Internal server error",
 	}
 	return inf
+}
+
+func NewAuthErrMap() ErrorMap {
+	return ErrorMap{
+		service.ErrUserNotFound:    {StatusCode: http.StatusBadRequest, Message: "User with provided login does not exist"},
+		service.ErrInvalidPassword: {StatusCode: http.StatusBadRequest, Message: "Wrong password provided"},
+	}
 }
