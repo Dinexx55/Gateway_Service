@@ -1,7 +1,8 @@
 package handler
 
 import (
-	"GatewayService/internal/handler/error/validation"
+	"GatewayService/internal/handler/response"
+	"GatewayService/internal/handler/validation"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,7 @@ type StoresHandler struct {
 	structValidator *validator.Validate
 }
 
+// Some custom validators used
 type Store struct {
 	Name        string `json:"name" validate:"required,min=3,max=40"`
 	Address     string `json:"address" validate:"required,addressFormat"`
@@ -43,6 +45,11 @@ func NewStoresHandler(channel *amqp.Channel, rabbitMQConn *amqp.Connection, rabb
 	}
 }
 
+const (
+	messageForError   = "Failed to publish a message"
+	messageForSuccess = "Storage service is processing your message. Check status through logs"
+)
+
 func (h *StoresHandler) CreateStore(c *gin.Context) {
 	var store Store
 	if err := c.ShouldBindJSON(&store); err != nil {
@@ -66,11 +73,11 @@ func (h *StoresHandler) CreateStore(c *gin.Context) {
 			zap.String("place", "Handler"),
 			zap.Error(err),
 		).Error("Failed to publish a message")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish a message"})
+		c.JSON(http.StatusInternalServerError, response.BuildJSONResponse("Error", messageForError))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Success", messageForSuccess))
 }
 
 func (h *StoresHandler) CreateStoreVersion(c *gin.Context) {
@@ -98,11 +105,11 @@ func (h *StoresHandler) CreateStoreVersion(c *gin.Context) {
 			zap.String("place", "Handler"),
 			zap.Error(err),
 		).Error("Failed to publish a message")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish a message"})
+		c.JSON(http.StatusInternalServerError, response.BuildJSONResponse("Error", messageForError))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Success", messageForSuccess))
 }
 
 func (h *StoresHandler) DeleteStore(c *gin.Context) {
@@ -119,11 +126,11 @@ func (h *StoresHandler) DeleteStore(c *gin.Context) {
 			zap.String("place", "Handler"),
 			zap.Error(err),
 		).Error("Failed to publish a message")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish a message"})
+		c.JSON(http.StatusInternalServerError, response.BuildJSONResponse("Error", messageForError))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Success", messageForSuccess))
 }
 
 func (h *StoresHandler) DeleteStoreVersion(c *gin.Context) {
@@ -142,11 +149,11 @@ func (h *StoresHandler) DeleteStoreVersion(c *gin.Context) {
 			zap.String("place", "Handler"),
 			zap.Error(err),
 		).Error("Failed to publish a message")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish a message"})
+		c.JSON(http.StatusInternalServerError, response.BuildJSONResponse("Error", messageForError))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Success", messageForSuccess))
 }
 
 func (h *StoresHandler) GetStore(c *gin.Context) {
@@ -163,11 +170,11 @@ func (h *StoresHandler) GetStore(c *gin.Context) {
 			zap.String("place", "Handler"),
 			zap.Error(err),
 		).Error("Failed to publish a message")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish a message"})
+		c.JSON(http.StatusInternalServerError, response.BuildJSONResponse("Error", messageForError))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Success", messageForSuccess))
 }
 
 func (h *StoresHandler) GetStoreHistory(c *gin.Context) {
@@ -179,15 +186,16 @@ func (h *StoresHandler) GetStoreHistory(c *gin.Context) {
 	storeId := c.Param("id")
 
 	err := h.sendMessage(buildMessage(nil, action, login, storeId, ""))
+
 	if err != nil {
 		h.logger.With(
 			zap.String("place", "Handler"),
 			zap.Error(err),
 		).Error("Failed to publish a message")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish a message"})
+		c.JSON(http.StatusInternalServerError, response.BuildJSONResponse("Error", messageForError))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Success", messageForSuccess))
 }
 
 func (h *StoresHandler) GetStoreVersion(c *gin.Context) {
@@ -206,16 +214,16 @@ func (h *StoresHandler) GetStoreVersion(c *gin.Context) {
 			zap.String("place", "Handler"),
 			zap.Error(err),
 		).Error("Failed to publish a message")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish a message"})
+		c.JSON(http.StatusInternalServerError, response.BuildJSONResponse("Error", messageForError))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Message sent to storage"})
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Success", messageForSuccess))
 }
 
 func (h *StoresHandler) HandleResponse(c *gin.Context) {
 	var payload interface{}
 
-	h.logger.Info("Trying to extract payload from response of storage service")
+	h.logger.Info("Trying to extract payload from response from storage service")
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

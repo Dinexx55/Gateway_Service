@@ -2,12 +2,12 @@ package response
 
 type JSONResult struct {
 	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Body    interface{} `json:"body"`
 }
 
-func CreateJSONResult(msg string, data interface{}) JSONResult {
+func BuildJSONResponse(msg string, data interface{}) JSONResult {
 	return JSONResult{
 		Message: msg,
-		Data:    data,
+		Body:    data,
 	}
 }

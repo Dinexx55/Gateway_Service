@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"os"
 	"time"
@@ -17,9 +16,7 @@ type RabbitMQConfig struct {
 	Password string
 }
 
-// HTTPServerConfig holds config information for http server
 type HTTPServerConfig struct {
-	MaxHeaderBytes    int
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 	ReadHeaderTimeout time.Duration
@@ -28,28 +25,15 @@ type HTTPServerConfig struct {
 	Host              string
 }
 
-// Server contains setting for setting up Server that contains HTTP and gRPC servers
-type Server struct {
-	HTTP *HTTPServerConfig
-}
-
-// Configurator used to get all configurations from configured conf files
 type Configurator struct {
 }
 
-// NewConfiguration set paths to config.yml
 func NewConfiguration() (*Configurator, error) {
-	godotenv.Load("../../.env")
-	switch os.Getenv("CURRENT_ENV") {
-	case "local":
 
-		viper.AddConfigPath("../../configs")
-		viper.SetConfigName("config")
-	default:
+	viper.SetConfigType("json")
 
-		viper.AddConfigPath("../../configs")
-		viper.SetConfigName("config")
-	}
+	viper.AddConfigPath("configs")
+	viper.SetConfigName("config")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("failed to read conf file: %w", err)
@@ -60,11 +44,9 @@ func NewConfiguration() (*Configurator, error) {
 	return c, nil
 }
 
-// SrvConfig returns configuration for server
-func (cfg *Configurator) getHTTPSrvConfig() *HTTPServerConfig {
+func (cfg *Configurator) GetHTTPSrvConfig() *HTTPServerConfig {
 
 	return &HTTPServerConfig{
-		MaxHeaderBytes:    viper.GetInt("srv.maxHeaderBytes"),
 		ReadTimeout:       viper.GetDuration("srv.readTimeout"),
 		WriteTimeout:      viper.GetDuration("srv.writeTimeout"),
 		ReadHeaderTimeout: viper.GetDuration("srv.readHeaderTimeout"),
@@ -72,17 +54,6 @@ func (cfg *Configurator) getHTTPSrvConfig() *HTTPServerConfig {
 		Port:              viper.GetString("srv.port"),
 		Host:              viper.GetString("srv.host"),
 	}
-}
-
-// ServerConfig returns config for creating Server struct
-func (cfg *Configurator) ServerConfig() *Server {
-	httpSrv := cfg.getHTTPSrvConfig()
-
-	srv := Server{
-		HTTP: httpSrv,
-	}
-
-	return &srv
 }
 
 func (cfg *Configurator) GetRabbitMQConfig() *RabbitMQConfig {
@@ -121,7 +92,7 @@ func (cfg *Configurator) GetEnvironment(logger *zap.Logger) AppEnvironment {
 	return AppEnvironment(env)
 }
 
-type JWTProvider struct {
+type AuthProviderConfig struct {
 	Host         string
 	Port         int
 	Timeout      time.Duration
@@ -129,18 +100,17 @@ type JWTProvider struct {
 	TimeoutRetry time.Duration
 }
 
-// JWTProviderConfig returns configuration for jwt generator
-func (cfg *Configurator) JWTProviderConfig(logger *zap.Logger) *JWTProvider {
+func (cfg *Configurator) GetAuthProviderConfig(logger *zap.Logger) *AuthProviderConfig {
 	logger.With(
-		zap.String("place", "JWTProviderConfig"),
-	).Info("Reading JWTProvider config from file")
+		zap.String("place", "GetAuthProviderConfig"),
+	).Info("Reading AuthProviderConfig config from file")
 
-	provider := &JWTProvider{
-		Host:         viper.GetString("tokenGen.host"),
-		Port:         viper.GetInt("tokenGen.port"),
-		Timeout:      viper.GetDuration("tokenGen.timeout"),
-		Retry:        viper.GetInt("tokenGen.retry"),
-		TimeoutRetry: viper.GetDuration("tokenGen.timeoutRetry"),
+	provider := &AuthProviderConfig{
+		Host:         viper.GetString("auth.host"),
+		Port:         viper.GetInt("auth.port"),
+		Timeout:      viper.GetDuration("auth.timeout"),
+		Retry:        viper.GetInt("auth.retry"),
+		TimeoutRetry: viper.GetDuration("auth.timeoutRetry"),
 	}
 	return provider
 }

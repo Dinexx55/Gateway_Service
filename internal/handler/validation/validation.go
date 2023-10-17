@@ -57,12 +57,12 @@ func FormatValidatorError(errs error) response.JSONResult {
 	ok := errors.As(errs, &e)
 
 	if !ok {
-		return response.CreateJSONResult("Error", "Invalid argument passed")
+		return response.BuildJSONResponse("Error", "Invalid argument passed")
 	}
 
 	for _, err := range e {
 		res[err.Field()] = err.Tag()
 	}
 
-	return response.CreateJSONResult("Error", res)
+	return response.BuildJSONResponse("Error", res)
 }

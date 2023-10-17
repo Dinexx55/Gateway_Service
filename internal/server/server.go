@@ -16,26 +16,21 @@ type Server struct {
 	logger     *zap.Logger
 }
 
-// function called to create HTTP server and configure it
-func NewServer(cfg *config.Server, handler http.Handler, logger *zap.Logger) *Server {
+func NewServer(cfg *config.HTTPServerConfig, handler http.Handler, logger *zap.Logger) *Server {
 	server := http.Server{
-		Addr:              cfg.HTTP.Host + ":" + cfg.HTTP.Port,
+		Addr:              cfg.Host + ":" + cfg.Port,
 		Handler:           handler,
-		MaxHeaderBytes:    cfg.HTTP.MaxHeaderBytes,
-		ReadTimeout:       cfg.HTTP.ReadTimeout,
-		WriteTimeout:      cfg.HTTP.WriteTimeout,
-		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
+		ReadTimeout:       cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
 	}
 	return &Server{
 		httpServer: &server,
-		timeOutSec: cfg.HTTP.TimeOutSec,
+		timeOutSec: cfg.TimeOutSec,
 		logger:     logger,
 	}
 }
 
-// Run starts configured server
-// receives context for cancellation
-// returns either error occurred during run, or during shutdown, or nothing
 func (s *Server) Run(ctx context.Context) error {
 	g, _ := errgroup.WithContext(ctx)
 	g.Go(func() error {

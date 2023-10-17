@@ -10,4 +10,5 @@
 .idea
 .env
 *.exe
+docker-compose.yaml
 
