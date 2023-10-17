@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"GatewayService/internal/handler/error/mapper"
-	"GatewayService/internal/handler/error/validation"
+	"GatewayService/internal/handler/mapper"
 	"GatewayService/internal/handler/response"
+	"GatewayService/internal/handler/validation"
 	"GatewayService/internal/service"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -21,7 +21,7 @@ type AuthHandler struct {
 }
 
 type Auth struct {
-	Login    string `json:"login" binding:"required,min=3,max=40"`
+	Login    string `json:"login" binding:"required,min=3,max=50"`
 	Password string `json:"password" binding:"required,min=6,max=40"`
 }
 
@@ -56,9 +56,8 @@ func (h *AuthHandler) SingIn(c *gin.Context) {
 
 		errInf := h.errorMapper.MapError(err)
 
-		h.logger.Info("Here")
 		c.JSON(errInf.StatusCode,
-			response.CreateJSONResult("Error", errInf.Message))
+			response.BuildJSONResponse("Error", errInf.Message))
 
 		return
 	}
@@ -67,5 +66,5 @@ func (h *AuthHandler) SingIn(c *gin.Context) {
 		zap.String("token", "accessToken"),
 	).Info("Token generated successfully")
 
-	c.JSON(http.StatusOK, response.CreateJSONResult("Access token", accessToken))
+	c.JSON(http.StatusOK, response.BuildJSONResponse("Access token", accessToken))
 }

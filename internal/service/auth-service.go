@@ -9,7 +9,7 @@ type UserRepository interface {
 	GetUserByLogin(login string) (*User, error)
 }
 
-type JWTProvider interface {
+type AuthProvider interface {
 	GetJWTToken(login string) (string, error)
 }
 
@@ -19,12 +19,12 @@ type User struct {
 }
 
 type AuthService struct {
-	provider   JWTProvider
+	provider   AuthProvider
 	logger     *zap.Logger
 	repository UserRepository
 }
 
-func NewAuthService(provider JWTProvider, logger *zap.Logger, repository UserRepository) *AuthService {
+func NewAuthService(provider AuthProvider, logger *zap.Logger, repository UserRepository) *AuthService {
 	return &AuthService{
 		provider:   provider,
 		logger:     logger,

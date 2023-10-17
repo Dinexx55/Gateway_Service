@@ -3,10 +3,10 @@ package main
 import (
 	"GatewayService/internal/config"
 	"GatewayService/internal/handler"
-	"GatewayService/internal/handler/error/mapper"
-	"GatewayService/internal/handler/error/validation"
+	"GatewayService/internal/handler/mapper"
+	"GatewayService/internal/handler/validation"
 	"GatewayService/internal/middleware"
-	"GatewayService/internal/provider/token"
+	"GatewayService/internal/provider"
 	"GatewayService/internal/repository"
 	"GatewayService/internal/server"
 	"GatewayService/internal/service"
@@ -22,15 +22,13 @@ import (
 
 func main() {
 	cfg, err := config.NewConfiguration()
-
 	if err != nil {
-		log.Fatalf("Failed to initialize config: %v", err)
+		log.Panicf("failed to initialize config: %v", err)
 	}
 
 	logger, err := initLogger()
-
 	if err != nil {
-		log.Fatalf("Failed to initialize logger: %v", err)
+		log.Panicf("failed to initialize logger: %v", err)
 	}
 	defer logger.Sync()
 
@@ -46,33 +44,29 @@ func main() {
 		logger.With(
 			zap.String("place", "main"),
 			zap.Error(err),
-		).Panic("Failed to register validators")
+		).Panic("failed to register validators")
 	}
 
-	providerCfg := cfg.JWTProviderConfig(logger)
+	providerCfg := cfg.GetAuthProviderConfig(logger)
 
-	authProvider, err := token.NewJWTProvider(*providerCfg, logger)
+	authProvider, err := provider.NewAuthProvider(*providerCfg, logger)
 	if err != nil {
 		logger.With(
 			zap.String("place", "main"),
 			zap.Error(err),
-		).Panic("Failed to connect to JWT provider")
+		).Panic("failed to connect to auth provider")
 	}
 
 	rabbitConnection, err := initRabbitMQConnection(cfg)
-
 	if err != nil {
-		rabbitConnection.Close()
 		logger.With(
 			zap.String("place", "main"),
 			zap.Error(err),
-		).Panic("Failed to establish RabbitMQ rabbitConnection")
+		).Panic("Failed to establish RabbitMQ Connection")
 	}
 
 	channel, err := initRabbitChannel(rabbitConnection)
-
 	if err != nil {
-		channel.Close()
 		logger.With(
 			zap.String("place", "main"),
 			zap.Error(err),
@@ -80,7 +74,6 @@ func main() {
 	}
 
 	queueName, err := declareRabbitQueue(channel)
-
 	if err != nil {
 		logger.With(
 			zap.String("place", "main"),
@@ -102,7 +95,7 @@ func main() {
 
 	router := handler.NewRouter(authHandler, storesHandler, authMiddleware)
 
-	srvCfg := cfg.ServerConfig()
+	srvCfg := cfg.GetHTTPSrvConfig()
 
 	srv := server.NewServer(srvCfg, router, logger)
 
@@ -131,10 +124,12 @@ func main() {
 }
 
 func initLogger() (*zap.Logger, error) {
-	logger, err := zap.NewProduction()
-	if os.Getenv("APP_ENV") == "development" {
-		logger, err = zap.NewDevelopment()
+	logger, err := zap.NewDevelopment()
+
+	if os.Getenv("APP_ENV") == "release" {
+		logger, err = zap.NewProduction()
 	}
+
 	return logger, err
 }
 
@@ -163,14 +158,3 @@ func initRabbitMQConnection(cfg *config.Configurator) (*amqp.Connection, error) 
 
 	return conn, err
 }
-
-//func initValidator(logger *zap.Logger) {
-//	validate := validator.New()
-//	err := validate.RegisterValidation("addressFormat", validation.ValidateAddress)
-//	if err != nil {
-//		logger.With(
-//			zap.String("place", "main"),
-//			zap.Error(err),
-//		).Panic("Failed to init validator")
-//	}
-//}
