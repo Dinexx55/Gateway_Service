@@ -23,8 +23,8 @@ type ErrorInfo struct {
 type ErrorMap map[error]ErrorInfo
 
 func (m ErrorMapper) MapError(err error) ErrorInfo {
-	if v, ok := m.mapper[err]; ok {
-		return v
+	if value, ok := m.mapper[err]; ok {
+		return value
 	}
 
 	inf := ErrorInfo{

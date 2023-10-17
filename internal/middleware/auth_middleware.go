@@ -36,19 +36,19 @@ func (m *Middleware) AccessTokenValidation() gin.HandlerFunc {
 		accessToken, err := ExtractTokenFromHeader(c)
 
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, response.CreateJSONResult("Error", err.Error()))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, response.BuildJSONResponse("Error", err.Error()))
 			return
 		}
 
 		err = m.provider.ValidateToken(accessToken)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, response.CreateJSONResult("Error", err.Error()))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, response.BuildJSONResponse("Error", err.Error()))
 			return
 		}
 
 		login, err := ExtractLoginFromToken(accessToken)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, response.CreateJSONResult("Error", err.Error()))
+			c.AbortWithStatusJSON(http.StatusUnauthorized, response.BuildJSONResponse("Error", err.Error()))
 			return
 		}
 

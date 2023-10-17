@@ -1,0 +1,23 @@
+{
+  "auth": {
+    "port": "8080",
+    "host": "auth-generator",
+    "timeout": 10000000000,
+    "retry": 10,
+    "timeoutRetry": 300000000
+  },
+  "srv": {
+    "readTimeout": 10000000000,
+    "writeTimeout": 10000000000,
+    "readHeaderTimeout": 10000000000,
+    "timeOutSec": 10,
+    "port": "8081",
+    "host": "0.0.0.0"
+  },
+  "rabbit": {
+    "host": "rabbitmq",
+    "port": "5672",
+    "username": "guest",
+    "password": "guest"
+  }
+}

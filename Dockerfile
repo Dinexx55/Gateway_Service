@@ -6,13 +6,15 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o main cmd/app/main.go
+RUN go build -o gateway-service cmd/app/main.go
 
-FROM golang:1.21.0
+FROM debian:bookworm AS runner
 
-COPY --from=builder /gateway/app/main /
-COPY --from=builder /gateway/app/configs/ /configs
+WORKDIR /usr/bin
 
-EXPOSE 8080
+COPY --from=builder /gateway/app/gateway-service .
+COPY --from=builder /gateway/app/configs/ /usr/bin/configs
 
-CMD /main
+EXPOSE 8081
+
+ENTRYPOINT ["gateway-service"]
